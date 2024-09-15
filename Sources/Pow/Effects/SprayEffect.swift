@@ -12,10 +12,10 @@ public extension AnyChangeEffect {
     ///   - origin: The origin of the particles.
     ///   - layer: The `ParticleLayer` on which to render the effect, default is `local`.
     ///   - particles: The particles to emit.
-    static func spray(origin: UnitPoint = .center, layer: ParticleLayer = .local, @ViewBuilder _ particles: () -> some View) -> AnyChangeEffect {
+    static func spray(origin: UnitPoint = .center, layer: ParticleLayer = .local, useHaptics: Bool = true,  @ViewBuilder _ particles: () -> some View) -> AnyChangeEffect {
         let particles = particles()
         return .simulation({ change in
-            SpraySimulation(view: particles, impulseCount: change, origin: origin, layer: layer)
+            SpraySimulation(view: particles, impulseCount: change, origin: origin, layer: layer, useHaptics: useHaptics)
         })
     }
 }
@@ -42,16 +42,19 @@ internal struct SpraySimulation<ParticleView: View>: ViewModifier, Simulative {
     private var pings: [Ping] = []
 
     private let layer: ParticleLayer
-    
+
+    private let useHaptics: Bool
+
     @Environment(\.particleLayerNames)
     var particleLayerNames
 
-    init(view: ParticleView, impulseCount: Int, initialVelocity: CGFloat = 0.0, origin: UnitPoint = .center, layer: ParticleLayer) {
+    init(view: ParticleView, impulseCount: Int, initialVelocity: CGFloat = 0.0, origin: UnitPoint = .center, layer: ParticleLayer, useHaptics: Bool) {
         self.particle = view
         self.impulseCount = impulseCount
         self.initialVelocity = initialVelocity
         self.origin = origin
         self.layer = layer
+        self.useHaptics = useHaptics
     }
 
     private var isSimulationPaused: Bool {
@@ -221,6 +224,8 @@ internal struct SpraySimulation<ParticleView: View>: ViewModifier, Simulative {
 
     #if os(iOS)
     private var hapticPattern: CHHapticPattern? {
+        guard useHaptics else { return nil }
+
         var rng = SeededRandomNumberGenerator(seed: 123)
 
         return try? CHHapticPattern(
